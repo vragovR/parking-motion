@@ -20,6 +20,8 @@ Compression=lzma2
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64
 WizardStyle=modern
+SetupIconFile=icons\app.ico
+UninstallDisplayIcon={app}\{#AppExeName}
 
 [Files]
 Source: "..\dist\parking-motion\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs

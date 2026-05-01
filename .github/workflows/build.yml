@@ -52,9 +52,11 @@ jobs:
           - os: windows-latest
             artifact_name: parking-motion-windows
             artifact_path: dist/parking-motion-windows-setup.exe
+            pyinstaller_icon: installer/icons/app.ico
           - os: macos-latest
             artifact_name: parking-motion-macos
             artifact_path: dist/parking-motion-macos.dmg
+            pyinstaller_icon: installer/icons/app.icns
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -73,6 +75,7 @@ jobs:
         run: >
           pyinstaller --noconfirm --onedir --windowed
           --name parking-motion
+          --icon ${{ matrix.pyinstaller_icon }}
           --collect-all PySide6
           --collect-all cv2
           parking_motion/__main__.py
@@ -86,6 +89,7 @@ jobs:
         run: |
           create-dmg \
             --volname "parking-motion" \
+            --volicon installer/icons/app.icns \
             --window-size 500 320 \
             --icon-size 96 \
             --icon "parking-motion.app" 130 160 \
