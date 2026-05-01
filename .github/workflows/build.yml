@@ -51,7 +51,7 @@ jobs:
         include:
           - os: windows-latest
             artifact_name: parking-motion-windows
-            artifact_path: dist/parking-motion.exe
+            artifact_path: dist/parking-motion-windows.zip
           - os: macos-latest
             artifact_name: parking-motion-macos
             artifact_path: dist/parking-motion-macos.zip
@@ -71,17 +71,20 @@ jobs:
 
       - name: Build with PyInstaller
         run: >
-          pyinstaller --noconfirm --onefile --windowed
+          pyinstaller --noconfirm --onedir --windowed
           --name parking-motion
           --collect-all PySide6
           --collect-all cv2
           parking_motion/__main__.py
 
-      - name: Zip macOS .app bundle
+      - name: Pack macOS .app bundle
         if: runner.os == 'macOS'
-        run: |
-          cd dist
-          zip -r parking-motion-macos.zip parking-motion.app
+        run: ditto -c -k --keepParent --sequesterRsrc dist/parking-motion.app dist/parking-motion-macos.zip
+
+      - name: Pack Windows folder
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path dist/parking-motion -DestinationPath dist/parking-motion-windows.zip
 
       - uses: actions/upload-artifact@v4
         with:
@@ -103,5 +106,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/parking-motion-windows/parking-motion.exe
+            artifacts/parking-motion-windows/parking-motion-windows.zip
             artifacts/parking-motion-macos/parking-motion-macos.zip
