@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [
-    { name = "TODO", email = "TODO" },
+    { name = "Vragov Roman", email = "vragovR@yandex.ru" },
 ]
 keywords = ["motion-detection", "cctv", "opencv", "pyside6", "parking", "video"]
 classifiers = [
@@ -41,8 +41,8 @@ dev = [
 testpaths = ["tests"]
 
 [project.urls]
-Homepage = "https://github.com/TODO/parking-motion"
-Issues = "https://github.com/TODO/parking-motion/issues"
+Homepage = "https://github.com/vragovR/parking-motion"
+Issues = "https://github.com/vragovR/parking-motion/issues"
 
 [project.scripts]
 parking-motion = "parking_motion.app:run"
