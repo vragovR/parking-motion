@@ -77,7 +77,6 @@ jobs:
           --name parking-motion
           --icon ${{ matrix.pyinstaller_icon }}
           --optimize 2
-          --collect-all cv2
           --exclude-module tkinter
           --exclude-module _tkinter
           parking_motion/__main__.py
