@@ -51,10 +51,10 @@ jobs:
         include:
           - os: windows-latest
             artifact_name: parking-motion-windows
-            artifact_path: dist/parking-motion-windows.zip
+            artifact_path: dist/parking-motion-windows-setup.exe
           - os: macos-latest
             artifact_name: parking-motion-macos
-            artifact_path: dist/parking-motion-macos.zip
+            artifact_path: dist/parking-motion-macos.dmg
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -77,14 +77,33 @@ jobs:
           --collect-all cv2
           parking_motion/__main__.py
 
-      - name: Pack macOS .app bundle
+      - name: Install create-dmg
         if: runner.os == 'macOS'
-        run: ditto -c -k --keepParent --sequesterRsrc dist/parking-motion.app dist/parking-motion-macos.zip
+        run: brew install create-dmg
 
-      - name: Pack Windows folder
+      - name: Build macOS DMG
+        if: runner.os == 'macOS'
+        run: |
+          create-dmg \
+            --volname "parking-motion" \
+            --window-size 500 320 \
+            --icon-size 96 \
+            --icon "parking-motion.app" 130 160 \
+            --app-drop-link 370 160 \
+            dist/parking-motion-macos.dmg \
+            dist/parking-motion.app
+
+      - name: Install Inno Setup
+        if: runner.os == 'Windows'
+        run: choco install innosetup --no-progress
+
+      - name: Build Windows installer
         if: runner.os == 'Windows'
         shell: pwsh
-        run: Compress-Archive -Path dist/parking-motion -DestinationPath dist/parking-motion-windows.zip
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" installer\parking-motion.iss
+          Move-Item installer\parking-motion-windows-setup.exe dist\parking-motion-windows-setup.exe
 
       - uses: actions/upload-artifact@v4
         with:
@@ -106,5 +125,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/parking-motion-windows/parking-motion-windows.zip
-            artifacts/parking-motion-macos/parking-motion-macos.zip
+            artifacts/parking-motion-windows/parking-motion-windows-setup.exe
+            artifacts/parking-motion-macos/parking-motion-macos.dmg
