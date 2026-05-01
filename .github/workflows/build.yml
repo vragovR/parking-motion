@@ -74,7 +74,7 @@ jobs:
       - name: Build with PyInstaller
         run: >
           pyinstaller --noconfirm --onedir --windowed
-          --name parking-motion
+          --name "Parking Motion"
           --icon ${{ matrix.pyinstaller_icon }}
           --optimize 2
           --exclude-module tkinter
@@ -89,14 +89,14 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           create-dmg \
-            --volname "parking-motion" \
+            --volname "Parking Motion" \
             --volicon installer/icons/app.icns \
             --window-size 500 320 \
             --icon-size 96 \
-            --icon "parking-motion.app" 130 160 \
+            --icon "Parking Motion.app" 130 160 \
             --app-drop-link 370 160 \
             dist/parking-motion-macos.dmg \
-            dist/parking-motion.app
+            "dist/Parking Motion.app"
 
       - name: Install Inno Setup
         if: runner.os == 'Windows'

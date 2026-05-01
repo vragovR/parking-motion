@@ -21,35 +21,23 @@
 
 ## Установка
 
-Требуется Python 3.11+.
+Готовые установщики собираются автоматически и публикуются в [Releases](https://github.com/vragovR/parking-motion/releases/latest).
 
-```bash
-git clone https://github.com/TODO/parking-motion.git
-cd parking-motion
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
-```
+### macOS
 
-Альтернатива без editable install:
+1. Скачать `parking-motion-macos.dmg` из последнего релиза.
+2. Двойной клик по DMG — откроется окно с иконкой `.app` и алиасом `Applications`.
+3. Перетянуть `Parking Motion.app` на `Applications`.
+4. Запустить из Launchpad. **Первый запуск:** правый клик по приложению → Open. Приложение unsigned, поэтому Gatekeeper при обычном двойном клике откажется его открывать; через контекстное меню разрешение запоминается, дальше открывается как обычно.
 
-```bash
-pip install -r requirements.txt
-```
+### Windows
 
-## Запуск
+1. Скачать `parking-motion-windows-setup.exe` из последнего релиза.
+2. Запустить установщик. SmartScreen может предупредить о «Unknown publisher» — нажать «More info → Run anyway».
+3. Пройти wizard «Welcome → Install» (по умолчанию ставится в `%LOCALAPPDATA%\Programs\Parking Motion` без admin-прав).
+4. Запускать через Start Menu или ярлык на рабочем столе (если оставили галку при установке).
 
-После `pip install -e .` появляется команда:
-
-```bash
-parking-motion
-```
-
-Без editable install:
-
-```bash
-python -m parking_motion
-```
+Удаление — через «Программы и компоненты» (Windows) или перетаскивание `Parking Motion.app` в Корзину (macOS).
 
 ## Использование
 
@@ -72,3 +60,32 @@ python -m parking_motion
 | Склейка, с            | Пауза в движении меньше — события не разбиваются.            |
 | Мин. длительность, с  | Короткие события отбрасываются.                              |
 | Макс. длительность, с | Принудительное закрытие, если движение слишком длинное.      |
+
+## Разработка
+
+Требуется Python 3.12+. CI гоняется на 3.12, локально проверено на 3.14.
+
+### Установка окружения
+
+```bash
+git clone git@github.com:vragovR/parking-motion.git
+cd parking-motion
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+make dev                           # editable install + ruff + pytest
+```
+
+### Запуск из исходников
+
+```bash
+make run                           # либо: python -m parking_motion
+```
+
+### Тесты, линт, форматирование
+
+```bash
+make test                          # pytest
+make lint                          # ruff check
+make format                        # ruff format (с записью)
+make format-check                  # без записи (как в CI)
+```

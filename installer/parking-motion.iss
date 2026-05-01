@@ -1,5 +1,5 @@
-#define AppName "parking-motion"
-#define AppExeName "parking-motion.exe"
+#define AppName "Parking Motion"
+#define AppExeName "Parking Motion.exe"
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
@@ -24,7 +24,7 @@ SetupIconFile=icons\app.ico
 UninstallDisplayIcon={app}\{#AppExeName}
 
 [Files]
-Source: "..\dist\parking-motion\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\Parking Motion\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
