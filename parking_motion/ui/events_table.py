@@ -10,6 +10,7 @@ from parking_motion.core.events import Event
 def _sort_key(event: Event) -> tuple[str, float]:
     return (event.source.name.lower(), event.start_s)
 
+
 COLUMNS = ("Превью", "Файл", "Начало", "Длительность, с")
 
 
@@ -46,9 +47,7 @@ class EventsModel(QAbstractTableModel):
         self._keys = []
         self.endResetModel()
 
-    def set_thumb_for_event(
-        self, source: Path, start_s: float, pixmap: QPixmap
-    ) -> None:
+    def set_thumb_for_event(self, source: Path, start_s: float, pixmap: QPixmap) -> None:
         key = (source.name.lower(), start_s)
         row = bisect.bisect_left(self._keys, key)
         while row < len(self._events) and self._keys[row] == key:
@@ -64,12 +63,12 @@ class EventsModel(QAbstractTableModel):
             return self._events[row]
         return None
 
-    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
+    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:  # noqa: B008
         if parent.isValid():
             return 0
         return len(self._events)
 
-    def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:
+    def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:  # noqa: B008
         if parent.isValid():
             return 0
         return len(COLUMNS)

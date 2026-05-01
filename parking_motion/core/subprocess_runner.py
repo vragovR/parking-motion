@@ -17,9 +17,7 @@ def run_processing(
             path=path,
             roi=roi,
             on_event=lambda ev: msg_queue.put(("event", ev)),
-            on_progress=lambda p, pct, eta: msg_queue.put(
-                ("progress", str(p), pct, eta)
-            ),
+            on_progress=lambda p, pct, eta: msg_queue.put(("progress", str(p), pct, eta)),
             cancel_event=cancel_event,
         )
     except Exception as e:

@@ -1,4 +1,4 @@
-.PHONY: help venv install reinstall run compile clean build freeze dev lint format test uninstall
+.PHONY: help venv install reinstall run compile clean build freeze dev lint format format-check test uninstall
 
 VENV := .venv
 PY := $(VENV)/bin/python
@@ -42,13 +42,16 @@ clean: ## удалить кеши и артефакты сборки
 	rm -rf .ruff_cache .pytest_cache .mypy_cache
 
 dev: venv ## поставить инструменты разработки (ruff, pytest)
-	$(PIP) install -e ".[dev]" ruff
+	$(PIP) install -e ".[dev]"
 
 lint: ## ruff check
-	$(VENV)/bin/ruff check parking_motion
+	$(VENV)/bin/ruff check parking_motion tests
 
 format: ## ruff format
-	$(VENV)/bin/ruff format parking_motion
+	$(VENV)/bin/ruff format parking_motion tests
+
+format-check: ## проверить форматирование без записи
+	$(VENV)/bin/ruff format --check parking_motion tests
 
 test: ## запустить pytest
 	$(PY) -m pytest

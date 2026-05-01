@@ -119,9 +119,7 @@ class RoiCanvas(QLabel):
         y = (widget_h - target_h) // 2
         return QRect(x, y, target_w, target_h)
 
-    def _widget_rect_to_frame(
-        self, widget_rect: QRect
-    ) -> tuple[int, int, int, int] | None:
+    def _widget_rect_to_frame(self, widget_rect: QRect) -> tuple[int, int, int, int] | None:
         if self._frame_size is None:
             return None
         target = self._image_target_rect()

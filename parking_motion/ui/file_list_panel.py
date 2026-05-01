@@ -20,9 +20,7 @@ FILE_THUMB_HEIGHT = 54
 ACTIVE_FG = QColor("#1976d2")
 
 
-def _set_item_progress(
-    item: QListWidgetItem, name: str, percent: int, active: bool
-) -> None:
+def _set_item_progress(item: QListWidgetItem, name: str, percent: int, active: bool) -> None:
     item.setText(f"{name} — {percent}%")
     item.setForeground(QBrush(ACTIVE_FG) if active else QBrush())
 
@@ -68,12 +66,8 @@ class FileListPanel(QWidget):
             item.setToolTip(str(path))
             self._list.addItem(item)
             self._items_by_path[path] = item
-            self._thumb_service.request_file_thumbnail(
-                path, FILE_THUMB_WIDTH, FILE_THUMB_HEIGHT
-            )
-        self._label.setText(
-            f"{len(paths)} файлов выбрано" if paths else "Файлы не выбраны"
-        )
+            self._thumb_service.request_file_thumbnail(path, FILE_THUMB_WIDTH, FILE_THUMB_HEIGHT)
+        self._label.setText(f"{len(paths)} файлов выбрано" if paths else "Файлы не выбраны")
 
     def reset_for_new_run(self) -> None:
         for path, item in self._items_by_path.items():

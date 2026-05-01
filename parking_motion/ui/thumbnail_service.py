@@ -6,9 +6,7 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QImage
 
 
-def _decode_thumbnail(
-    path: Path, t_seconds: float, max_w: int, max_h: int
-) -> QImage | None:
+def _decode_thumbnail(path: Path, t_seconds: float, max_w: int, max_h: int) -> QImage | None:
     cap = cv2.VideoCapture(str(path))
     try:
         if t_seconds > 0:
@@ -35,9 +33,7 @@ class ThumbnailService(QObject):
 
     def __init__(self, max_workers: int = 2, parent: QObject | None = None) -> None:
         super().__init__(parent)
-        self._pool = ThreadPoolExecutor(
-            max_workers=max(1, max_workers), thread_name_prefix="thumb"
-        )
+        self._pool = ThreadPoolExecutor(max_workers=max(1, max_workers), thread_name_prefix="thumb")
 
     def request_file_thumbnail(self, path: Path, max_w: int, max_h: int) -> None:
         self._pool.submit(self._do_file, path, max_w, max_h)
@@ -50,9 +46,7 @@ class ThumbnailService(QObject):
         max_w: int,
         max_h: int,
     ) -> None:
-        self._pool.submit(
-            self._do_event, path, key_start_s, frame_t_seconds, max_w, max_h
-        )
+        self._pool.submit(self._do_event, path, key_start_s, frame_t_seconds, max_w, max_h)
 
     def shutdown(self) -> None:
         self._pool.shutdown(wait=False, cancel_futures=True)

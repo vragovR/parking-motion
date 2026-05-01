@@ -34,9 +34,7 @@ def test_roi_zero_size_returns_none() -> None:
 
 
 def test_huge_threshold_suppresses_all_motion() -> None:
-    det = RoiMotionDetector(
-        roi=(0, 0, 100, 100), params=make_params(area_threshold=10**9)
-    )
+    det = RoiMotionDetector(roi=(0, 0, 100, 100), params=make_params(area_threshold=10**9))
     rng = np.random.default_rng(42)
     for i in range(5):
         frame = rng.integers(0, 256, size=(100, 100, 3), dtype=np.uint8)
@@ -44,9 +42,7 @@ def test_huge_threshold_suppresses_all_motion() -> None:
 
 
 def test_motion_sample_carries_t_seconds() -> None:
-    det = RoiMotionDetector(
-        roi=(0, 0, 100, 100), params=make_params(area_threshold=1)
-    )
+    det = RoiMotionDetector(roi=(0, 0, 100, 100), params=make_params(area_threshold=1))
     for i in range(5):
         det.process(black_frame(), float(i) * 0.1)
     bright = np.full((100, 100, 3), 255, dtype=np.uint8)

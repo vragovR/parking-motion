@@ -7,7 +7,6 @@ from parking_motion.config import EventParams
 from parking_motion.core.events import EventAggregator
 from parking_motion.core.motion import MotionSample
 
-
 SOURCE = Path("/tmp/fake.mp4")
 
 
@@ -64,8 +63,12 @@ def test_merge_gap_splits_into_two_events() -> None:
     events = feed_all(
         agg,
         [
-            (0.0, 100), (0.2, 100), (0.4, 100),
-            (2.0, 100), (2.2, 100), (2.4, 100),
+            (0.0, 100),
+            (0.2, 100),
+            (0.4, 100),
+            (2.0, 100),
+            (2.2, 100),
+            (2.4, 100),
         ],
     )
     assert len(events) == 2
@@ -74,12 +77,8 @@ def test_merge_gap_splits_into_two_events() -> None:
 
 
 def test_max_event_duration_force_closes() -> None:
-    agg = EventAggregator(
-        SOURCE, make_params(merge_gap_s=10.0, max_event_duration_s=1.0)
-    )
-    events = feed_all(
-        agg, [(0.0, 100), (0.5, 100), (1.0, 100), (1.2, 100)]
-    )
+    agg = EventAggregator(SOURCE, make_params(merge_gap_s=10.0, max_event_duration_s=1.0))
+    events = feed_all(agg, [(0.0, 100), (0.5, 100), (1.0, 100), (1.2, 100)])
     assert len(events) == 2
     assert events[0].start_s == 0.0
     assert events[0].end_s == pytest.approx(0.5)
@@ -87,13 +86,12 @@ def test_max_event_duration_force_closes() -> None:
 
 
 def test_cooldown_skips_samples_after_close() -> None:
-    agg = EventAggregator(
-        SOURCE, make_params(merge_gap_s=0.5, cooldown_s=2.0)
-    )
+    agg = EventAggregator(SOURCE, make_params(merge_gap_s=0.5, cooldown_s=2.0))
     events = feed_all(
         agg,
         [
-            (0.0, 100), (0.4, 100),
+            (0.0, 100),
+            (0.4, 100),
             (1.0, 100),
             (1.5, 100),
             (2.5, 100),
@@ -105,17 +103,13 @@ def test_cooldown_skips_samples_after_close() -> None:
 
 
 def test_min_motion_frames_drops_event() -> None:
-    agg = EventAggregator(
-        SOURCE, make_params(merge_gap_s=10.0, min_motion_frames=3)
-    )
+    agg = EventAggregator(SOURCE, make_params(merge_gap_s=10.0, min_motion_frames=3))
     events = feed_all(agg, [(0.0, 100), (1.0, 100)])
     assert events == []
 
 
 def test_min_peak_area_drops_event() -> None:
-    agg = EventAggregator(
-        SOURCE, make_params(merge_gap_s=10.0, min_peak_area=500)
-    )
+    agg = EventAggregator(SOURCE, make_params(merge_gap_s=10.0, min_peak_area=500))
     events = feed_all(agg, [(0.0, 100), (1.0, 200), (2.0, 150)])
     assert events == []
 

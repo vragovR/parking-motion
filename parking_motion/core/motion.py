@@ -21,9 +21,7 @@ class RoiMotionDetector:
         self._x, self._y, self._w, self._h = roi
         self._area_threshold = max(0, params.area_threshold)
         self._blur_kernel = (
-            params.blur_kernel
-            if params.blur_kernel >= 3 and params.blur_kernel % 2 == 1
-            else 0
+            params.blur_kernel if params.blur_kernel >= 3 and params.blur_kernel % 2 == 1 else 0
         )
         self._morph_kernel = max(0, params.morph_kernel)
         self._min_contour_area = max(0, params.min_contour_area)

@@ -159,12 +159,8 @@ class MainWindow(QMainWindow):
         self._file_panel.set_files(self._session.files)
         self._update_run_enabled()
 
-    def _on_event_thumb_ready(
-        self, path_str: str, start_s: float, image: QImage
-    ) -> None:
-        self._events_model.set_thumb_for_event(
-            Path(path_str), start_s, QPixmap.fromImage(image)
-        )
+    def _on_event_thumb_ready(self, path_str: str, start_s: float, image: QImage) -> None:
+        self._events_model.set_thumb_for_event(Path(path_str), start_s, QPixmap.fromImage(image))
 
     def _on_file_clicked(self, path: Path) -> None:
         self._top_stack.setCurrentWidget(self._roi_canvas)
@@ -191,9 +187,7 @@ class MainWindow(QMainWindow):
             self._run_btn.setText("Отмена…")
             return
         if not self._session.files or self._session.roi is None:
-            QMessageBox.warning(
-                self, "Не готово", "Выберите файлы и обведите ROI на стоп-кадре."
-            )
+            QMessageBox.warning(self, "Не готово", "Выберите файлы и обведите ROI на стоп-кадре.")
             return
 
         files = list(self._session.files)
@@ -231,9 +225,7 @@ class MainWindow(QMainWindow):
     def _on_controller_file_started(self, path: Path) -> None:
         self._file_panel.mark_progress(path, 0, active=True)
 
-    def _on_controller_file_progress(
-        self, path: Path, percent: int, eta: float
-    ) -> None:
+    def _on_controller_file_progress(self, path: Path, percent: int, eta: float) -> None:
         self._file_panel.mark_progress(path, percent, active=True)
 
     def _on_controller_file_finished(self, path: Path) -> None:

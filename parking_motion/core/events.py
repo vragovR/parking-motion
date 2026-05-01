@@ -37,10 +37,7 @@ class EventAggregator:
 
         closed: Event | None = None
 
-        if (
-            self._last_s is not None
-            and sample.t_seconds - self._last_s > self._merge_gap_s
-        ):
+        if self._last_s is not None and sample.t_seconds - self._last_s > self._merge_gap_s:
             closed = self._close()
             self._reset()
             if sample.t_seconds < self._cooldown_until:
