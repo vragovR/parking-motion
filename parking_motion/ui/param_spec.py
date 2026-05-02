@@ -44,6 +44,20 @@ PARAM_SPECS: list[ParamSpec] = [
     ),
     ParamSpec(
         target="motion",
+        attr="min_contour_area",
+        label="Мин. площадь блоба, px²",
+        kind="int",
+        minimum=0,
+        maximum=100_000,
+        step=50,
+        hint=(
+            "Минимальная площадь одного движущегося блоба (px²), чтобы он "
+            "учитывался. Отбрасывает мелкий шум (листья, дождь, пиксельные "
+            "блики) до суммирования общей площади."
+        ),
+    ),
+    ParamSpec(
+        target="motion",
         attr="mog_detect_shadows",
         label="Учёт теней",
         kind="bool",
@@ -74,6 +88,32 @@ PARAM_SPECS: list[ParamSpec] = [
         maximum=60.0,
         step=0.1,
         hint=("Минимальная длительность события. Короткие всплески (шум, бабочка) отбрасываются."),
+    ),
+    ParamSpec(
+        target="event",
+        attr="min_motion_frames",
+        label="Мин. кадров движения",
+        kind="int",
+        minimum=1,
+        maximum=1000,
+        step=1,
+        hint=(
+            "Минимум сэмплов с движением внутри события. Помогает выкинуть "
+            "одиночные блипы (компрессия, мерцание)."
+        ),
+    ),
+    ParamSpec(
+        target="event",
+        attr="min_peak_area",
+        label="Мин. пиковая площадь, px²",
+        kind="int",
+        minimum=0,
+        maximum=1_000_000,
+        step=100,
+        hint=(
+            "Самый «громкий» кадр события должен превышать этот порог. Режет "
+            "слабые события, которые еле-еле прошли per-frame порог площади."
+        ),
     ),
     ParamSpec(
         target="event",
