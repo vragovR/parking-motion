@@ -24,11 +24,19 @@ class EventParams:
 
 
 @dataclass
+class ExportParams:
+    pad_before_s: float = 0.0
+    pad_after_s: float = 0.0
+    fourcc: str = "mp4v"
+
+
+@dataclass
 class ProcessingParams:
     frame_skip: int = 5
     parallel_workers: int = 2
     motion: MotionParams = field(default_factory=MotionParams)
     event: EventParams = field(default_factory=EventParams)
+    export: ExportParams = field(default_factory=ExportParams)
 
 
 @dataclass

@@ -1,18 +1,21 @@
 import copy
 from pathlib import Path
 
-from PySide6.QtCore import QModelIndex, QSize, QSortFilterProxyModel, Qt
+from PySide6.QtCore import QModelIndex, QPersistentModelIndex, QSize, Qt
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
+    QFileDialog,
+    QHBoxLayout,
     QHeaderView,
     QLabel,
-    QLineEdit,
     QMainWindow,
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QSizePolicy,
     QSplitter,
     QStackedWidget,
+    QStyle,
     QTableView,
     QVBoxLayout,
     QWidget,
@@ -20,7 +23,10 @@ from PySide6.QtWidgets import (
 
 from parking_motion.config import ProcessingParams, SessionState
 from parking_motion.core.events import Event
+from parking_motion.core.exporter import dedupe_filename, default_clip_filename
+from parking_motion.ui.events_table import COLUMNS as EVENT_COLUMNS
 from parking_motion.ui.events_table import EventsModel
+from parking_motion.ui.export_controller import ExportController
 from parking_motion.ui.file_list_panel import FileListPanel
 from parking_motion.ui.params_panel import ParamsPanel
 from parking_motion.ui.player import EventPlayer
@@ -47,6 +53,16 @@ class MainWindow(QMainWindow):
         self._controller.overallProgress.connect(self._on_controller_overall_progress)
         self._controller.eventFound.connect(self._on_event_found)
         self._controller.elapsedTick.connect(self._on_elapsed_tick)
+
+        self._export_controller = ExportController(self)
+        self._export_controller.exportStarted.connect(self._on_export_started)
+        self._export_controller.exportProgress.connect(self._on_export_progress)
+        self._export_controller.clipFailed.connect(self._on_export_clip_failed)
+        self._export_controller.exportFinished.connect(self._on_export_finished)
+        self._export_failures: list[tuple[Event, str]] = []
+        self._last_export_dir: str = ""
+        self._analysis_complete: bool = False
+        self._cancel_requested: bool = False
 
         self.setWindowTitle("Parking Motion")
         self.resize(1400, 900)
@@ -96,17 +112,14 @@ class MainWindow(QMainWindow):
         self._top_stack.addWidget(self._player)
 
         self._events_model = EventsModel()
-        self._proxy = QSortFilterProxyModel()
-        self._proxy.setSourceModel(self._events_model)
-        self._proxy.setFilterCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-        self._proxy.setFilterKeyColumn(1)
+        self._events_model.rowsInserted.connect(self._on_rows_inserted)
+        self._events_model.modelReset.connect(self._update_export_btn_enabled)
 
-        self._filter_edit = QLineEdit()
-        self._filter_edit.setPlaceholderText("Фильтр по имени файла…")
-        self._filter_edit.textChanged.connect(self._proxy.setFilterFixedString)
+        self._download_icon = self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowDown)
+        self._download_col = len(EVENT_COLUMNS) - 1
 
         self._events_view = QTableView()
-        self._events_view.setModel(self._proxy)
+        self._events_view.setModel(self._events_model)
         self._events_view.setSortingEnabled(False)
         self._events_view.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
         self._events_view.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
@@ -119,14 +132,42 @@ class MainWindow(QMainWindow):
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(self._download_col, QHeaderView.ResizeMode.Fixed)
+        header.resizeSection(self._download_col, 44)
         header.setStretchLastSection(False)
         self._events_view.doubleClicked.connect(self._on_event_double_clicked)
 
+        self._export_btn = QPushButton("Экспорт всех…")
+        self._export_btn.setToolTip(
+            "Сохранить все события из таблицы. Доступно после завершения анализа."
+        )
+        self._export_btn.clicked.connect(self._on_export_all_clicked)
+        self._export_btn.setEnabled(False)
+        self._export_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+
+        self._export_progress = QProgressBar()
+        self._export_progress.setRange(0, 1)
+        self._export_progress.setValue(0)
+        self._export_progress.setFormat("Экспорт %v из %m")
+        self._export_progress.setVisible(False)
+
+        self._export_cancel_btn = QPushButton("Отменить")
+        self._export_cancel_btn.clicked.connect(self._export_controller.cancel)
+        self._export_cancel_btn.setVisible(False)
+        self._export_cancel_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+
+        export_row = QHBoxLayout()
+        export_row.setContentsMargins(0, 0, 0, 0)
+        export_row.addWidget(self._export_btn)
+        export_row.addWidget(self._export_progress, stretch=1)
+        export_row.addWidget(self._export_cancel_btn)
+        export_row.addStretch(1)
+
         bottom = QWidget()
         bottom_layout = QVBoxLayout(bottom)
-        bottom_layout.setContentsMargins(0, 0, 0, 0)
-        bottom_layout.addWidget(self._filter_edit)
+        bottom_layout.setContentsMargins(0, 0, 0, 8)
         bottom_layout.addWidget(self._events_view)
+        bottom_layout.addLayout(export_row)
 
         right_split = QSplitter(Qt.Orientation.Vertical)
         right_split.addWidget(self._top_stack)
@@ -182,6 +223,7 @@ class MainWindow(QMainWindow):
 
     def _on_run_clicked(self) -> None:
         if self._controller.is_running():
+            self._cancel_requested = True
             self._controller.cancel()
             self._run_btn.setEnabled(False)
             self._run_btn.setText("Отмена…")
@@ -193,6 +235,9 @@ class MainWindow(QMainWindow):
         files = list(self._session.files)
         self._events_model.clear()
         self._file_panel.reset_for_new_run()
+        self._analysis_complete = False
+        self._cancel_requested = False
+        self._update_export_btn_enabled()
 
         self._controller.start(files, self._session.roi, copy.deepcopy(self._params))
 
@@ -210,7 +255,9 @@ class MainWindow(QMainWindow):
             self._file_panel.mark_idle(path)
         self._run_btn.setText("Запустить анализ")
         self._file_panel.set_selection_enabled(True)
+        self._analysis_complete = not self._cancel_requested
         self._update_run_enabled()
+        self._update_export_btn_enabled()
 
     def _on_event_found(self, event: Event) -> None:
         self._events_model.add_event(event, None)
@@ -238,15 +285,173 @@ class MainWindow(QMainWindow):
         self._elapsed_label.setText(f"Время: {text}")
 
     def _on_event_double_clicked(self, index: QModelIndex) -> None:
-        source_index = self._proxy.mapToSource(index)
-        event = self._events_model.event_at(source_index.row())
+        if index.column() == self._download_col:
+            return
+        event = self._events_model.event_at(index.row())
         if event is None:
             return
         self._top_stack.setCurrentWidget(self._player)
         self._player.play_at(event.source, event.start_s)
 
+    def _on_rows_inserted(self, _parent: QModelIndex, first: int, last: int) -> None:
+        for row in range(first, last + 1):
+            self._install_download_button(row)
+        self._update_export_btn_enabled()
+
+    def _install_download_button(self, row: int) -> None:
+        index = self._events_model.index(row, self._download_col)
+        persistent = QPersistentModelIndex(index)
+        btn = QPushButton()
+        btn.setIcon(self._download_icon)
+        btn.setToolTip("Сохранить клип как…")
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        btn.setFixedSize(32, 28)
+        btn.clicked.connect(lambda _checked=False, p=persistent: self._on_download_clicked(p))
+
+        wrapper = QWidget(self._events_view)
+        layout = QHBoxLayout(wrapper)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(btn, 0, Qt.AlignmentFlag.AlignCenter)
+        self._events_view.setIndexWidget(index, wrapper)
+
+    def _on_download_clicked(self, persistent: QPersistentModelIndex) -> None:
+        if not persistent.isValid():
+            return
+        event = self._events_model.event_at(persistent.row())
+        if event is None:
+            return
+        self._on_export_one(event)
+
+    def _update_export_btn_enabled(self) -> None:
+        enabled = (
+            self._analysis_complete
+            and self._events_model.rowCount() > 0
+            and not self._export_controller.is_running()
+        )
+        self._export_btn.setEnabled(enabled)
+
+    def _on_export_one(self, event: Event) -> None:
+        if self._export_controller.is_running():
+            QMessageBox.information(
+                self,
+                "Экспорт",
+                "Дождитесь завершения текущего экспорта или отмените его.",
+            )
+            return
+        default_name = default_clip_filename(event.source, event.start_s, event.duration_s)
+        default_dir = self._last_export_dir or str(event.source.parent)
+        default_path = str(Path(default_dir) / default_name)
+        path_str, _ = QFileDialog.getSaveFileName(
+            self,
+            "Сохранить клип",
+            default_path,
+            "MP4 (*.mp4)",
+        )
+        if not path_str:
+            return
+        dst = Path(path_str)
+        self._last_export_dir = str(dst.parent)
+        self._export_failures = []
+        self._export_controller.export_one(event, dst, self._params.export)
+
+    def _on_export_all_clicked(self) -> None:
+        if self._export_controller.is_running():
+            self._export_controller.cancel()
+            return
+        if self._events_model.rowCount() == 0:
+            QMessageBox.information(self, "Экспорт", "Нет событий для экспорта.")
+            return
+        events: list[Event] = []
+        for row in range(self._events_model.rowCount()):
+            event = self._events_model.event_at(row)
+            if event is not None:
+                events.append(event)
+        if not events:
+            return
+
+        box = QMessageBox(self)
+        box.setWindowTitle("Экспорт")
+        box.setText(f"Сохранить {len(events)} событий:")
+        single_btn = box.addButton("В один файл", QMessageBox.ButtonRole.AcceptRole)
+        multi_btn = box.addButton("Отдельными файлами", QMessageBox.ButtonRole.AcceptRole)
+        box.addButton("Отмена", QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        clicked = box.clickedButton()
+        if clicked is single_btn:
+            self._start_concat_export(events)
+        elif clicked is multi_btn:
+            self._start_multi_export(events)
+
+    def _start_multi_export(self, events: list[Event]) -> None:
+        default_dir = self._last_export_dir or str(Path.home())
+        directory = QFileDialog.getExistingDirectory(self, "Выберите папку для клипов", default_dir)
+        if not directory:
+            return
+        dest = Path(directory)
+        jobs: list[tuple[Event, Path]] = []
+        taken: set[str] = set()
+        for event in events:
+            base = default_clip_filename(event.source, event.start_s, event.duration_s)
+            unique = dedupe_filename(dest, base, taken)
+            taken.add(unique)
+            jobs.append((event, dest / unique))
+        if not jobs:
+            return
+        self._last_export_dir = str(dest)
+        self._export_failures = []
+        self._export_controller.export_many(jobs, self._params.export)
+
+    def _start_concat_export(self, events: list[Event]) -> None:
+        first = events[0]
+        default_name = f"{first.source.stem}_concat_{len(events)}_events.mp4"
+        default_dir = self._last_export_dir or str(first.source.parent)
+        default_path = str(Path(default_dir) / default_name)
+        path_str, _ = QFileDialog.getSaveFileName(
+            self,
+            "Сохранить объединённый клип",
+            default_path,
+            "MP4 (*.mp4)",
+        )
+        if not path_str:
+            return
+        dst = Path(path_str)
+        self._last_export_dir = str(dst.parent)
+        self._export_failures = []
+        self._export_controller.export_concat(events, dst, self._params.export)
+
+    def _on_export_started(self, total: int) -> None:
+        self._export_progress.setRange(0, max(1, total))
+        self._export_progress.setValue(0)
+        self._export_progress.setVisible(True)
+        self._export_cancel_btn.setVisible(True)
+        self._update_export_btn_enabled()
+
+    def _on_export_progress(self, done: int, total: int) -> None:
+        self._export_progress.setRange(0, max(1, total))
+        self._export_progress.setValue(done)
+
+    def _on_export_clip_failed(self, event: Event, error: str) -> None:
+        self._export_failures.append((event, error))
+
+    def _on_export_finished(self) -> None:
+        self._export_progress.setVisible(False)
+        self._export_cancel_btn.setVisible(False)
+        self._update_export_btn_enabled()
+        if self._export_failures:
+            lines = [
+                f"{ev.source.name} @ {ev.start_s:.1f}s — {err}" for ev, err in self._export_failures
+            ]
+            QMessageBox.warning(
+                self,
+                "Экспорт завершён с ошибками",
+                "Не удалось экспортировать клипы:\n\n" + "\n".join(lines),
+            )
+        self._export_failures = []
+
     def closeEvent(self, event) -> None:
         self._player.stop()
         self._controller.shutdown(3000)
+        self._export_controller.shutdown(3000)
         self._thumb_service.shutdown()
         super().closeEvent(event)

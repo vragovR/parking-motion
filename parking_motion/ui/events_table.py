@@ -11,7 +11,7 @@ def _sort_key(event: Event) -> tuple[str, float]:
     return (event.source.name.lower(), event.start_s)
 
 
-COLUMNS = ("Превью", "Файл", "Начало", "Длительность, с")
+COLUMNS = ("Превью", "Файл", "Начало", "Длительность, с", "")
 
 
 def format_hms(seconds: float) -> str:
