@@ -11,7 +11,7 @@ def _sort_key(event: Event) -> tuple[str, float]:
     return (event.source.name.lower(), event.start_s)
 
 
-COLUMNS = ("Превью", "Файл", "Начало", "Длительность, с", "")
+COLUMNS = ("Превью", "Файл", "Начало", "Длительность, с", "", "")
 
 
 def format_hms(seconds: float) -> str:
@@ -28,6 +28,7 @@ class EventsModel(QAbstractTableModel):
         self._events: list[Event] = []
         self._thumbs: list[QPixmap | None] = []
         self._keys: list[tuple[str, float]] = []
+        self._viewed: list[bool] = []
 
     def add_event(self, event: Event, thumbnail: QPixmap | None = None) -> None:
         key = _sort_key(event)
@@ -36,6 +37,7 @@ class EventsModel(QAbstractTableModel):
         self._keys.insert(row, key)
         self._events.insert(row, event)
         self._thumbs.insert(row, thumbnail)
+        self._viewed.insert(row, False)
         self.endInsertRows()
 
     def clear(self) -> None:
@@ -45,7 +47,18 @@ class EventsModel(QAbstractTableModel):
         self._events = []
         self._thumbs = []
         self._keys = []
+        self._viewed = []
         self.endResetModel()
+
+    def is_viewed(self, row: int) -> bool:
+        return 0 <= row < len(self._viewed) and self._viewed[row]
+
+    def set_viewed(self, row: int, viewed: bool) -> None:
+        if 0 <= row < len(self._viewed) and self._viewed[row] != viewed:
+            self._viewed[row] = viewed
+            left = self.index(row, 0)
+            right = self.index(row, self.columnCount() - 1)
+            self.dataChanged.emit(left, right, [Qt.ItemDataRole.UserRole])
 
     def set_thumb_for_event(self, source: Path, start_s: float, pixmap: QPixmap) -> None:
         key = (source.name.lower(), start_s)

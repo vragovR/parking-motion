@@ -4,6 +4,7 @@ from pathlib import Path
 from PySide6.QtCore import QModelIndex, QPersistentModelIndex, QSize, Qt
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
+    QCheckBox,
     QFileDialog,
     QHBoxLayout,
     QHeaderView,
@@ -111,12 +112,15 @@ class MainWindow(QMainWindow):
         self._top_stack.addWidget(self._roi_canvas)
         self._top_stack.addWidget(self._player)
 
+        self._params_panel.auto_tune_btn.clicked.connect(self._on_auto_tune_clicked)
+
         self._events_model = EventsModel()
         self._events_model.rowsInserted.connect(self._on_rows_inserted)
         self._events_model.modelReset.connect(self._update_export_btn_enabled)
 
         self._download_icon = self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowDown)
         self._download_col = len(EVENT_COLUMNS) - 1
+        self._viewed_col = len(EVENT_COLUMNS) - 2
 
         self._events_view = QTableView()
         self._events_view.setModel(self._events_model)
@@ -132,6 +136,8 @@ class MainWindow(QMainWindow):
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(self._viewed_col, QHeaderView.ResizeMode.Fixed)
+        header.resizeSection(self._viewed_col, 36)
         header.setSectionResizeMode(self._download_col, QHeaderView.ResizeMode.Fixed)
         header.resizeSection(self._download_col, 44)
         header.setStretchLastSection(False)
@@ -156,8 +162,13 @@ class MainWindow(QMainWindow):
         self._export_cancel_btn.setVisible(False)
         self._export_cancel_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
+        self._show_viewed_chk = QCheckBox("Показывать просмотренные")
+        self._show_viewed_chk.setChecked(False)
+        self._show_viewed_chk.toggled.connect(self._on_show_viewed_toggled)
+
         export_row = QHBoxLayout()
         export_row.setContentsMargins(0, 0, 0, 0)
+        export_row.addWidget(self._show_viewed_chk)
         export_row.addWidget(self._export_btn)
         export_row.addWidget(self._export_progress, stretch=1)
         export_row.addWidget(self._export_cancel_btn)
@@ -193,6 +204,12 @@ class MainWindow(QMainWindow):
     def _on_params_changed(self, snapshot: ProcessingParams) -> None:
         self._params = snapshot
 
+    def _on_auto_tune_clicked(self) -> None:
+        roi = self._session.roi
+        if roi is None or roi[2] <= 0 or roi[3] <= 0:
+            return
+        self._params_panel.apply_thresholds_for_roi(roi[2] * roi[3])
+
     def _on_files_selected(self, paths: list[Path]) -> None:
         if self._controller.is_running():
             return
@@ -212,6 +229,12 @@ class MainWindow(QMainWindow):
     def _on_roi_selected(self, roi: tuple) -> None:
         self._session.roi = tuple(int(v) for v in roi)
         self._update_run_enabled()
+        self._update_auto_tune_enabled()
+
+    def _update_auto_tune_enabled(self) -> None:
+        roi = self._session.roi
+        ok = roi is not None and roi[2] > 0 and roi[3] > 0
+        self._params_panel.auto_tune_btn.setEnabled(ok)
 
     def _update_run_enabled(self) -> None:
         ok = (
@@ -285,7 +308,7 @@ class MainWindow(QMainWindow):
         self._elapsed_label.setText(f"Время: {text}")
 
     def _on_event_double_clicked(self, index: QModelIndex) -> None:
-        if index.column() == self._download_col:
+        if index.column() in (self._download_col, self._viewed_col):
             return
         event = self._events_model.event_at(index.row())
         if event is None:
@@ -295,6 +318,7 @@ class MainWindow(QMainWindow):
 
     def _on_rows_inserted(self, _parent: QModelIndex, first: int, last: int) -> None:
         for row in range(first, last + 1):
+            self._install_viewed_checkbox(row)
             self._install_download_button(row)
         self._update_export_btn_enabled()
 
@@ -323,10 +347,52 @@ class MainWindow(QMainWindow):
             return
         self._on_export_one(event)
 
+    def _install_viewed_checkbox(self, row: int) -> None:
+        index = self._events_model.index(row, self._viewed_col)
+        persistent = QPersistentModelIndex(index)
+        chk = QCheckBox()
+        chk.setToolTip("Отметить как просмотренное")
+        chk.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        chk.setChecked(self._events_model.is_viewed(row))
+        chk.toggled.connect(
+            lambda checked, p=persistent: self._on_viewed_toggled(p, checked)
+        )
+
+        wrapper = QWidget(self._events_view)
+        layout = QHBoxLayout(wrapper)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(chk, 0, Qt.AlignmentFlag.AlignCenter)
+        self._events_view.setIndexWidget(index, wrapper)
+
+    def _on_viewed_toggled(self, persistent: QPersistentModelIndex, checked: bool) -> None:
+        if not persistent.isValid():
+            return
+        row = persistent.row()
+        self._events_model.set_viewed(row, checked)
+        self._apply_row_visibility(row)
+        self._update_export_btn_enabled()
+
+    def _apply_row_visibility(self, row: int) -> None:
+        hide = self._events_model.is_viewed(row) and not self._show_viewed_chk.isChecked()
+        self._events_view.setRowHidden(row, hide)
+
+    def _on_show_viewed_toggled(self, _checked: bool) -> None:
+        for row in range(self._events_model.rowCount()):
+            self._apply_row_visibility(row)
+        self._update_export_btn_enabled()
+
+    def _visible_event_count(self) -> int:
+        include_viewed = self._show_viewed_chk.isChecked()
+        count = 0
+        for row in range(self._events_model.rowCount()):
+            if include_viewed or not self._events_model.is_viewed(row):
+                count += 1
+        return count
+
     def _update_export_btn_enabled(self) -> None:
         enabled = (
             self._analysis_complete
-            and self._events_model.rowCount() > 0
+            and self._visible_event_count() > 0
             and not self._export_controller.is_running()
         )
         self._export_btn.setEnabled(enabled)
@@ -362,12 +428,16 @@ class MainWindow(QMainWindow):
         if self._events_model.rowCount() == 0:
             QMessageBox.information(self, "Экспорт", "Нет событий для экспорта.")
             return
+        include_viewed = self._show_viewed_chk.isChecked()
         events: list[Event] = []
         for row in range(self._events_model.rowCount()):
+            if not include_viewed and self._events_model.is_viewed(row):
+                continue
             event = self._events_model.event_at(row)
             if event is not None:
                 events.append(event)
         if not events:
+            QMessageBox.information(self, "Экспорт", "Нет событий для экспорта.")
             return
 
         box = QMessageBox(self)

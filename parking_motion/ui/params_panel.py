@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QScrollArea,
     QSpinBox,
     QVBoxLayout,
@@ -26,10 +27,20 @@ class ParamsPanel(QScrollArea):
     ) -> None:
         super().__init__(parent)
         self._params = copy.deepcopy(params)
+        self._widgets: dict[tuple[str, str], QWidget] = {}
 
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setContentsMargins(8, 8, 8, 8)
+
+        self.auto_tune_btn = QPushButton("Подобрать параметры")
+        self.auto_tune_btn.setEnabled(False)
+        self.auto_tune_btn.setToolTip(
+            "Подбирает «Площадь», «Мин. площадь блоба» и «Мин. пиковую "
+            "площадь» по площади выделенного ROI."
+        )
+        layout.addWidget(self.auto_tune_btn)
+        layout.addSpacing(8)
 
         for spec in PARAM_SPECS:
             self._add_block(layout, spec)
@@ -43,10 +54,30 @@ class ParamsPanel(QScrollArea):
     def params(self) -> ProcessingParams:
         return copy.deepcopy(self._params)
 
+    def apply_thresholds_for_roi(self, roi_pixels: int) -> dict[str, int]:
+        if roi_pixels <= 0:
+            return {}
+        proportions = {
+            ("motion", "area_threshold"): 0.010,
+            ("motion", "min_contour_area"): 0.0015,
+            ("event", "min_peak_area"): 0.015,
+        }
+        applied: dict[str, int] = {}
+        for (kind, attr), proportion in proportions.items():
+            widget = self._widgets.get((kind, attr))
+            if not isinstance(widget, QSpinBox):
+                continue
+            new_value = max(1, round(roi_pixels * proportion))
+            widget.setValue(new_value)
+            applied[attr] = new_value
+        return applied
+
     def _add_block(self, layout: QVBoxLayout, spec: ParamSpec) -> None:
         row = QHBoxLayout()
         row.addWidget(QLabel(spec.label), stretch=1)
-        row.addWidget(self._make_widget(spec))
+        widget = self._make_widget(spec)
+        self._widgets[(spec.target, spec.attr)] = widget
+        row.addWidget(widget)
         layout.addLayout(row)
         if spec.hint:
             desc = QLabel(spec.hint)

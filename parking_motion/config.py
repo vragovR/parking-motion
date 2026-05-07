@@ -18,7 +18,7 @@ class EventParams:
     merge_gap_s: float = 1.0
     min_duration_s: float = 1.0
     min_peak_area: int = 1500
-    max_event_duration_s: float = 60.0
+    max_event_duration_s: float = 0.0
     cooldown_s: float = 0.0
     min_motion_frames: int = 2
 
