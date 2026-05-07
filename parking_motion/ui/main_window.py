@@ -354,9 +354,7 @@ class MainWindow(QMainWindow):
         chk.setToolTip("Отметить как просмотренное")
         chk.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         chk.setChecked(self._events_model.is_viewed(row))
-        chk.toggled.connect(
-            lambda checked, p=persistent: self._on_viewed_toggled(p, checked)
-        )
+        chk.toggled.connect(lambda checked, p=persistent: self._on_viewed_toggled(p, checked))
 
         wrapper = QWidget(self._events_view)
         layout = QHBoxLayout(wrapper)
