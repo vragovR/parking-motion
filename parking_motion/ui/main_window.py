@@ -37,6 +37,7 @@ from parking_motion.ui.thumbnail_service import ThumbnailService
 
 THUMB_WIDTH = 160
 THUMB_HEIGHT = 90
+PLAYBACK_LOOKBACK_S = 1.0
 
 
 class MainWindow(QMainWindow):
@@ -314,7 +315,7 @@ class MainWindow(QMainWindow):
         if event is None:
             return
         self._top_stack.setCurrentWidget(self._player)
-        self._player.play_at(event.source, event.start_s)
+        self._player.play_at(event.source, max(0.0, event.start_s - PLAYBACK_LOOKBACK_S))
 
     def _on_rows_inserted(self, _parent: QModelIndex, first: int, last: int) -> None:
         for row in range(first, last + 1):

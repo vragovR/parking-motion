@@ -25,8 +25,8 @@ class EventParams:
 
 @dataclass
 class ExportParams:
-    pad_before_s: float = 0.0
-    pad_after_s: float = 0.0
+    pad_before_s: float = 1.0
+    pad_after_s: float = 1.0
     fourcc: str = "mp4v"
 
 
